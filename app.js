@@ -20,12 +20,8 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/actors', async (req, res, next) => {
-  const { filter } = req.query
-  const getUsers = await knex('actors')
-    .where('name', 'ilike', `%${filter?.name || ''}%`)
-  res.json(getUsers)
-})
+app.get('/actors', actors.get)
+app.get('/film-terbaik', actors.filmTerbaik)
 
 app.use('*', (req, res, next) => {
   res.status(404).json('Not Found')

@@ -1,38 +1,59 @@
 var express = require('express');
-var router = express.Router();
 
+const queryByColumn = (where, column, query) => {
+  const keys = Object.keys(where[column])
+  if (typeof where[column] === 'string') {
+    query.where(column, where[column])
+  } else {
+    for (const key of keys) {
+      if (key === 'in') {
+        query.whereIn(column, where[column][key].split(','))
+      }
+      if (key === 'like') {
+        query.where(column, 'ilike', `%${where[column][key]}%`)
+      }
+      if (key === 'gt') {
+        query.where(column, '>', where[column][key])
+      }
+      if (key === 'lt') {
+        query.where(column, '<', where[column][key])
+      }
+    }
+  }
+}
 const get = async (req, res, next) => {
   try {
-    const getUsers = await knex('actors')
-      .modify((q) => {
-        if (req.query?.where?.name) {
-          const { name } = req.query?.where
-          const keys = Object.keys(name)
-          for (const key of keys) {
-            if (key === 'in') {
-              q.whereIn('name', name.in.split(','))
-            }
-            if (key === 'like') {
-              q.where('name', 'ilike', `%${name.like}%`)
-            }
-          }
+    const janganBuka = ['id']
+    let allow = false
+    if (req.query?.where) {
+      for (const key of Object.keys(req.query?.where)) {
+        if (!janganBuka.includes(key)) {
+          allow = true
+        } else {
+          allow = false
+          throw "Jangan dibuka"
         }
-        if (req.query?.where?.actor_id) {
-          const { actor_id } = req.query?.where
-          const keys = Object.keys(actor_id)
-          for (const key of keys) {
-            if (key === 'in') {
-              q.whereIn('actor_id', actor_id.in.split(','))
-            }
-            if (key === 'like') {
-              q.where('actor_id', 'ilike', `%${actor_id.like}%`)
-            }
+      }
+    }
+    const getUsers = await req.db('contents')
+      .modify((q) => {
+        if (req.query?.where && allow) {
+          for (const key of Object.keys(req.query?.where)) {
+            queryByColumn(req.query.where, key, q)
           }
         }
       })
-    res.json(getUsers)
-  } catch ({ code, message }) {
-    res.json({ code, message })
+    const newData = getUsers.map(x => {
+      delete x.title
+      return x
+    })
+    res.status(500).json(newData)
+  } catch (error) {
+    if (error.code) {
+      res.json({ code: error.code, message: error.message })
+    } else {
+      res.status(500).json({ code: 400, message: error })
+    }
   }
 }
 const filmTerbaik = async (req, res, next) => {
